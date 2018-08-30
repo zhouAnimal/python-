@@ -193,8 +193,8 @@ def add_new_video(driver,rootdir,LD,ZWM,FLBZ,PSZ,LQ,JDJY,JDZT):
         
 def from_begin_to_end(driver,sleepTime,item):
         print('execute from_begin_to_end()...')
-        js="window.open('http://159.226.67.87/lifenote/user/record/addNew')"
-        #js="window.open('http://159.226.67.87/lifenote/user/media/addBatch/374')"
+        js="window.open('http://127.0.0.1/lifenote/user/record/addNew')"
+        #js="window.open('http://127.0.0.1/lifenote/user/media/addBatch/374')"
         driver = open_new_windows(driver,js)
         time.sleep(sleepTime)
         add_new_view(driver,item['记录日期'],item['地理位置关键词'],item['地理位置'],item['数据集'],item['观测笔记'])
@@ -233,14 +233,14 @@ if __name__ == '__main__':
     for item in items:
         if(count == 1):
             driver = webdriver.Chrome()
-            driver.get('http://159.226.67.87/lifenote/')#网站首页IP地址
+            driver.get('http://127.0.0.1/lifenote/')#网站首页IP地址
             #driver.maximize_window() #最大化窗口
             login(driver,username,password)
             count+=1
         driver.implicitly_wait(10) # 隐性等待，最长等30秒
         time.sleep(10)
         from_begin_to_end(driver,sleepTime,item)
-        #s="window.open('http://159.226.67.87/lifenote/user/media/addBatch/425')"#批量上传IP地址
+        #s="window.open('http://127.0.0.1/lifenote/user/media/addBatch/425')"#批量上传IP地址
         #nly_upload_imgs(driver,sleepTime,item,js)
     print("上传完成,程序已执行完毕")
 
