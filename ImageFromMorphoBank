@@ -1,0 +1,109 @@
+import  pandas  as pd
+import requests
+import re
+import os
+import urllib.request
+
+
+##获取链接数据
+def get_one_page(url):
+    try:
+        headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) ''Chrome/51.0.2704.63 Safari/537.36'}
+        response = requests.get(url,headers = headers, timeout = 30)
+        if response.status_code == 200:
+            return response.text
+        else:
+            print(response.status_code)
+        return None
+    except RequestException:
+        print('访问http发生错误... ')
+        return None
+    
+
+        
+        
+#获取总页数 
+def getPageRangeFromLink(tHtml,tlink):
+    linkWithPage = []  # 定义一个空数组
+    pattern = re.compile('Displaying page(.*?)of(.*?)pages',re.S)
+    items = re.findall(pattern,tHtml)
+    for item in items:
+        beginPage = int(item[0])
+        endPage = int(item[1])
+        print("起始页码："+str(beginPage)+'结束页码：'+str(endPage))
+        for page in range(beginPage,endPage+1):
+            linkWithPage.append(tlink+'?page='+str(page)+'#')
+    return linkWithPage
+        
+
+
+     
+ #使用正则表达解析图片链接
+def getImageLink(tHtml):
+    imagelinkWithPage = []  # 定义一个空数组
+    pattern = re.compile('<img src=\'https(.*?)>',re.S)
+    items = re.findall(pattern,tHtml)
+    i = 0
+    for item in items:
+        firstSingleQuotationMark = item.index('\'')
+        index = int(firstSingleQuotationMark)
+        imagelinkWithPage.append('https'+item[0:firstSingleQuotationMark])
+    return imagelinkWithPage
+        
+#创建文件夹        
+def createFolder(tlink,rootPath):
+    print(tlink)
+    startIndex = tlink.index('project_id/')
+    folderName = tlink[startIndex+11:]
+    imageSavePath = rootPath+folderName
+    is_exists = os.path.exists(imageSavePath) #是否存在该目录
+    if not is_exists:
+        os.mkdir(imageSavePath)# 创建文件夹
+        print('{0} 文件夹创建成功'.format(imageSavePath))
+    else:
+        print('{0} 文件夹已经存在'.format(imageSavePath))
+    return imageSavePath
+    
+
+def find_last(string,str):
+    last_position=-1
+    while True:
+        position=string.find(str,last_position+1)
+        if position==-1:
+            return last_position
+        last_position=position
+
+        
+        
+def downloadImage(imageslink,savePath):
+    startNameIndex = find_last(imageslink,'/')
+    if(startNameIndex == -1):
+        print('这个路径有问题，无法提取出文件名：'+imageslink)
+    imgName = imageslink[startNameIndex+1:]
+    try:
+        f = open(savePath+ '\\'+imgName, 'wb')
+        f.write((urllib.request.urlopen(imageslink)).read())
+        f.close()
+    except Exception as e:
+        print(e)
+        print(imageslink+" error")
+    
+        
+#1、读取excel文件
+excel_path = 'E:\\006CT\\list of MorphoBank.xls'
+rootPath = "E:\\006CT\\ImageFromMorphoBank\\"
+data  = pd.read_excel(excel_path, sheet_name='Sheet1')
+downloadlinks = data['下载链接']
+#2、使用 for 遍历某一列
+for tlink in downloadlinks:
+    print('tlink='+tlink)
+    savePath = createFolder(tlink,rootPath)
+    print('文件保存路径：'+savePath)
+    tHtml = get_one_page(tlink)
+    pagelinks = getPageRangeFromLink(tHtml,tlink)
+    for pagelink in pagelinks:
+        imageslinks = getImageLink(get_one_page(pagelink))
+        for imageslink in imageslinks:
+            downloadImage(imageslink,savePath)
+    
+    
