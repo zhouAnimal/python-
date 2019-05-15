@@ -1,0 +1,241 @@
+import  pandas  as pd
+import requests
+import re
+import os
+import urllib.request
+import time
+import base64
+import threading
+import time
+
+
+#http://tool.oschina.net/commons          content-Type对照表
+
+
+def getHeader(link):
+    headers_chorm = { 
+    'Host': 'morphobank.org',
+    'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0',
+    'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language':'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
+    'Accept-Encoding':'gzip, deflate, br',
+    'Referer': link,
+    'Content-Type':'application/x-www-form-urlencoded',
+    'Content-Length':'10',
+    'Cookie':'_ga=GA1.2.1016495467.1556414158; PHPSESSID=c0pqquf2r3q7s9ikc7hkk1q7n9; _gid=GA1.2.1234700632.1557190248; _gat_gtag_UA_19132312_1=1',
+    'Connection':'keep-alive',
+    'Pragma':'no-cache',
+    'Cache-Control':'no-cache'
+    }
+    return headers_chorm
+    
+
+def getHeader_visitPage():
+    headers_chorm = { 
+    'Host': 'morphobank.org',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cookie': '_ga=GA1.2.1016495467.1556414158; PHPSESSID=c0pqquf2r3q7s9ikc7hkk1q7n9; _gid=GA1.2.1234700632.1557190248',
+    'Connection': 'keep-alive',
+    'Upgrade-Insecure-Requests': '1',
+    'Pragma': 'no-cache',
+    'Cache-Control': 'no-cache'
+    }
+    return headers_chorm
+
+##获取链接数据
+def get_one_page(url,customer_headers):
+    try:
+        headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0'}
+        response = requests.get(url,headers = customer_headers, timeout = 300)
+        if response.status_code == 200:
+            return response.text
+        else:
+            print(response.status_code)
+        return None
+    except IOError:
+        print('访问http发生错误... ',url)
+        return None
+    
+
+        
+        
+#获取总页数 
+def getPageRangeFromLink(tHtml,tlink):
+    linkWithPage = []  # 定义一个空数组
+    pattern = re.compile('Displaying page(.*?)of(.*?)pages',re.S)
+    items = re.findall(pattern,tHtml)
+    for item in items:
+        beginPage = int(item[0])
+        endPage = int(item[1])
+        print("起始页码："+str(1)+'结束页码：'+str(endPage))
+        for page in range(29,endPage+1):
+            linkWithPage.append(tlink+'?page='+str(page)+'#')
+    return linkWithPage
+        
+
+
+     
+ #使用正则表达解析图片链接
+def getImageLink(tHtml):
+    imagelinkWithPage = []  # 定义一个空数组
+    pattern = re.compile('<img src=\'https(.*?)>',re.S)
+    items = re.findall(pattern,tHtml)
+    i = 0
+    for item in items:
+        print(item)
+        firstSingleQuotationMark = item.index('\'')
+        index = int(firstSingleQuotationMark)
+        imagelinkWithPage.append('https'+item[0:firstSingleQuotationMark])
+    return imagelinkWithPage
+
+    
+
+#创建文件夹        
+def createFolder(tlink,rootPath):
+    print(tlink)
+    startIndex = tlink.index('project_id/')
+    folderName = tlink[startIndex+11:]
+    imageSavePath = rootPath+folderName
+    is_exists = os.path.exists(imageSavePath) #是否存在该目录
+    if not is_exists:
+        os.mkdir(imageSavePath)# 创建文件夹
+        print('{0} 文件夹创建成功'.format(imageSavePath))
+    else:
+        print('{0} 文件夹已经存在'.format(imageSavePath))
+    return imageSavePath
+    
+
+def find_last(string,str):
+    last_position=-1
+    while True:
+        position=string.find(str,last_position+1)
+        if position==-1:
+            return last_position
+        last_position=position
+
+#判断文件是否存在
+def isFileExist(path):
+    return os.path.exists(path)      
+        
+def downloadImage(imageslink,savePath):
+    startNameIndex = find_last(imageslink,'/')
+    if(startNameIndex == -1):
+        print('这个路径有问题，无法提取出文件名：'+imageslink)
+    imgName = imageslink[startNameIndex+1:]
+    try:
+        f = open(savePath+ '\\'+imgName, 'wb')
+        f.write((urllib.request.urlopen(imageslink)).read())
+        f.close()
+    except Exception as e:
+        print(e)
+        print(imageslink+" error")
+
+# 某字符subStr在line中第findCnt次出现的位置
+def findStr(line, subStr, findCnt):
+    listStr = line.split(subStr,findCnt)
+    if len(listStr) <= findCnt:
+        return -1
+    return len(line)-len(listStr[-1])-len(subStr)
+
+
+
+def getAllFile(path):
+    allfile = []
+    for root, dirs, files  in os.walk(path):
+        for name in files:
+            allfile.append(name[0:name.index('.')])
+    return allfile
+
+def getImageLinkOfOriginalPic(tHtml):
+    imagelinkWithPage = []  # 定义一个空数组
+    pattern = re.compile('<a href=\'/index.php/Projects/Media/id/(.*?)M',re.S)
+    items = re.findall(pattern,tHtml)
+    i = 0
+    matchCount = len(items)
+    for item in items:
+        firstObliqueLineIndex = item.index('/')##   第1个斜杠的位置
+        secondObliqueLineIndex = findStr(item,'/',2)##  第2个斜杠的位置
+        firstSingleQuotationMark = item.index('\'')##   第1个单引号的位置
+        imageId = item[0:firstObliqueLineIndex]
+        project_id = item[secondObliqueLineIndex+1:firstSingleQuotationMark]
+        visitlink = 'https://morphobank.org/index.php/Projects/DownloadMedia/project_id/'+project_id+'/id/'+imageId+'/download/1'
+        imagelinkWithPage.append(visitlink)
+    return imagelinkWithPage
+
+
+#根据参数计算，并发送post请求
+def sumAndSendPost(link,savePath,fileNames):
+    try:
+        time.sleep(2)
+        
+        beginIndex = link.index('/id/')+4
+        endIndex = link.index('/download/')
+        mayBeImageName = 'M'+link[beginIndex:endIndex]
+        if mayBeImageName in fileNames:
+            #print('文件已存在',mayBeImageName)
+            return
+        tHtml = get_one_page(link,getHeader_visitPage())
+        pattern = re.compile('<span id="securityText">(.*?)</span>',re.S)
+        items = re.findall(pattern,tHtml)
+        for item in items:
+            indexOfPlus = item.index('+')
+            indexOfEquals = item.index('=')
+            firstNum = item[0:indexOfPlus].strip()
+            lastNum = item[indexOfPlus+1:indexOfEquals].strip()
+            plusResult = int(firstNum)+int(lastNum)
+            d = {'sec_num': plusResult}
+            response = requests.post(link, data=d,headers=getHeader(link))
+            res_headers = response.headers
+            content_Disposition = res_headers['Content-Disposition']
+            imgName = content_Disposition[content_Disposition.index('filename=')+9:]
+            #print('imgName=',imgName,time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+            imageFilePath = savePath+ '\\'+imgName
+            if isFileExist(imageFilePath):
+                continue
+            if imgName.find('tiff')>=0 or imgName.find('jpg')>=0 or imgName.find('png')>=0:
+                if(response.status_code == 200):
+                    f = open(imageFilePath, 'wb')
+                    encodestr = base64.b64encode(response.content)
+                    imagedata = base64.b64decode(str(encodestr,'utf-8'))
+                    f.write(imagedata)
+                    f.close()
+                else:
+                    print('下载图片失败，链接：'+link)
+            else:
+                print('不知道这个类型的文件是否可以下载：'+imgName)
+    except IOError:
+        print('下载图片失败，链接：'+link)
+        
+                   
+        
+#1、读取excel文件
+excel_path = 'E:\\006CT\\ImageFromMorphoBank\\list of MorphoBank - 3146.xls'
+rootPath = "E:\\006CT\\ImageFromMorphoBank\\"
+data  = pd.read_excel(excel_path, sheet_name='Sheet1')
+downloadlinks = data['下载链接']
+imageCount = data['图片数量']
+#2、使用 for 遍历某一列
+imageCountIndex=0
+threads = []
+for tlink in downloadlinks:
+    print('-tlink='+tlink,time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+    imageCountIndex = imageCountIndex+1
+    savePath = createFolder(tlink,rootPath)
+    print('文件保存路径：'+savePath)
+    fileNames = getAllFile(savePath)
+    tHtml = get_one_page(tlink,getHeader_visitPage())
+    pagelinks = getPageRangeFromLink(tHtml,tlink)
+    for pagelink in pagelinks:
+        print(pagelink,time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
+        imageslinks = getImageLinkOfOriginalPic(get_one_page(pagelink,getHeader_visitPage()))
+        for imageslink in imageslinks:
+            #threads.append(threading.Thread(target=sumAndSendPost,args=(imageslink,savePath)))
+            sumAndSendPost(imageslink,savePath,fileNames)
+    threadCount = 0
+for t in threads:
+    threadCount = threadCount+1
+    print(threadCount,'开始一个线程...')
+    t.start()
